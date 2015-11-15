@@ -47,7 +47,7 @@ module Navo
     end
 
     # Execte a command on the container.
-    def exec(args, severity: ::Logger::DEBUG)
+    def exec(args, severity: :debug)
       container.exec(args) do |_stream, chunk|
         @logger.log(severity, chunk)
       end
@@ -55,7 +55,7 @@ module Navo
 
     # Execute a command on the container, raising an error if it exists
     # unsuccessfully.
-    def exec!(args, severity: ::Logger::DEBUG)
+    def exec!(args, severity: :debug)
       out, err, status = exec(args, severity: severity)
       raise Error::ExecutionError, "STDOUT:#{out}\nSTDERR:#{err}" unless status == 0
       [out, err, status]
@@ -102,7 +102,7 @@ module Navo
         --config=#{File.join(chef_config_dir, 'solo.rb')}
         --json-attributes=#{File.join(chef_config_dir, 'first-boot.json')}
         --force-formatter
-      ])
+      ], severity: :info)
 
       state['converged'] = status == 0
       state.save
@@ -115,7 +115,8 @@ module Navo
       @logger.info "=====> Verifying #{name}"
       sandbox.update_test_config
 
-      _, _, status = exec(['/usr/bin/env'] + busser_env + %W[#{busser_bin} test])
+      _, _, status = exec(['/usr/bin/env'] + busser_env + %W[#{busser_bin} test],
+                          severity: :info)
       status == 0
     end
 

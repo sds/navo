@@ -13,6 +13,15 @@ module Navo
   # that is synchronized when writing to stdout/stderr for the application as a
   # whole.
   class Logger
+    UI_COLORS = {
+      unknown: 35, # purple
+      fatal: 39,   # hot red
+      error: 31,   # red
+      warn: 33,    # yellow
+      info: nil,   # normal
+      debug: 90,   # gray
+    }
+
     class << self
       attr_reader :logger
 
@@ -43,19 +52,23 @@ module Navo
     end
 
     def log(severity, message)
-      @logger.add(severity, message)
+      level = ::Logger.const_get(severity.upcase)
+      @logger.add(level, message)
+
+      color_code = UI_COLORS[severity]
+      prefix = @suite ? "[#{@suite.name}] " : ""
+      message = "\e[#{color_code}m#{message}\e[0m" if color_code
+      message += "\n" unless message.end_with?("\n")
 
       # This is shared amongst potentially many threads, so serialize access
       self.class.mutex.synchronize do
-        self.class.logger.add(severity, message)
+        self.class.logger << "#{prefix}#{message}"
       end
     end
 
     %i[unknown fatal error warn info debug].each do |severity|
-      level = ::Logger.const_get(severity.upcase)
-
       define_method severity do |msg|
-        log(level, msg)
+        log(severity, msg)
       end
     end
   end
