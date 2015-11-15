@@ -23,6 +23,11 @@ module Navo
       test_files_dir = File.join(@suite.repo_root, %w[test integration])
       suite_dir = File.join(test_files_dir, @suite.name)
 
+      unless File.exist?(suite_dir)
+        @logger.warn "No test files found at #{suite_dir} for #{@suite.name} suite"
+        return
+      end
+
       # serverspec, bats, etc.
       frameworks = Pathname.new(suite_dir).children
                                           .select(&:directory?)
