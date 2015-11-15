@@ -1,4 +1,3 @@
-require 'berkshelf'
 require 'fileutils'
 require 'pathname'
 
@@ -66,6 +65,7 @@ module Navo
 
       puts 'Resolving Berksfile...'
       @suite.exec!(%w[rm -rf] + [vendored_cookbooks_dir])
+      require 'berkshelf' # Lazily require so we don't have to pay the price every command
       Berkshelf::Berksfile.from_file(berksfile).vendor(vendored_cookbooks_dir)
 
       @suite.copy(from: File.join(storage_directory, 'cookbooks', '.'),

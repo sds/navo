@@ -1,4 +1,3 @@
-require 'berkshelf'
 require 'navo'
 require 'thor'
 
