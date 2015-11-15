@@ -1,3 +1,4 @@
+require 'digest'
 require 'fileutils'
 require 'logger'
 
@@ -49,20 +50,19 @@ module Navo
         @logger = ::Logger.new(log_file)
         @logger.level = self.class.level
       end
+
+      @color_hash = {}
     end
 
     def log(severity, message)
       level = ::Logger.const_get(severity.upcase)
       @logger.add(level, message)
 
-      color_code = UI_COLORS[severity]
-      prefix = @suite ? "[#{@suite.name}] " : ""
-      message = "\e[#{color_code}m#{message}\e[0m" if color_code
-      message += "\n" unless message.end_with?("\n")
+      message = pretty_message(severity, message)
 
       # This is shared amongst potentially many threads, so serialize access
       self.class.mutex.synchronize do
-        self.class.logger << "#{prefix}#{message}"
+        self.class.logger << message
       end
     end
 
@@ -70,6 +70,21 @@ module Navo
       define_method severity do |msg|
         log(severity, msg)
       end
+    end
+
+    private
+
+    def pretty_message(severity, message)
+      color_code = UI_COLORS[severity]
+      prefix = @suite ? "\e[#{color_for_string(@suite.name)}m[#{@suite.name}]\e[0m " : ""
+      message = "\e[#{color_code}m#{message}\e[0m" if color_code
+      message += "\n" unless message.end_with?("\n")
+      "#{prefix}#{message}"
+    end
+
+    # Returns a deterministic color code for the given string.
+    def color_for_string(string)
+      @color_hash[string] ||= (Digest::MD5.hexdigest(string)[0..8].to_i(16) % 6) + 31
     end
   end
 end
