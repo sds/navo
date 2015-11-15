@@ -1,4 +1,5 @@
 require 'navo'
+require 'parallel'
 require 'thor'
 
 module Navo
@@ -11,29 +12,27 @@ module Navo
       Navo::Logger.level = config['log-level']
     end
 
-    desc 'create', 'create a container for test suite(s) to run within'
-    def create(pattern = nil)
-      exit suites_for(pattern).map(&:create).all? ? 0 : 1
-    end
-
-    desc 'converge', 'run Chef for test suite(s)'
-    def converge(pattern = nil)
-      exit suites_for(pattern).map(&:converge).all? ? 0 : 1
-    end
-
-    desc 'verify', 'run test suite(s)'
-    def verify(pattern = nil)
-      exit suites_for(pattern).map(&:verify).all? ? 0 : 1
-    end
-
-    desc 'test', 'converge and run test suite(s)'
-    def test(pattern = nil)
-      exit suites_for(pattern).map(&:test).all? ? 0 : 1
-    end
-
-    desc 'destroy', 'clean up test suite(s)'
-    def destroy(pattern = nil)
-      exit suites_for(pattern).map(&:destroy).all? ? 0 : 1
+    {
+      create: 'create a container for test suite(s) to run within',
+      converge: 'run Chef for test suite(s)',
+      verify: 'run test suites(s)',
+      test: 'converge and run test suites(s)',
+      destroy: 'clean up test suite(s)',
+    }.each do |action, description|
+      desc "#{action} [suite|regexp]", description
+      option :concurrency,
+             aliases: '-c',
+             type: :numeric,
+             default: Parallel.processor_count,
+             desc: 'Execute up to the specified number of test suites concurrently'
+      option 'log-level',
+             aliases: '-l',
+             type: :string,
+             desc: 'Set the log output verbosity level'
+      define_method(action) do |*args|
+        apply_flags_to_config!
+        execute(action, *args)
+      end
     end
 
     desc 'login', "open a shell inside a suite's container"
@@ -64,6 +63,27 @@ module Navo
       suite_names.map do |suite_name|
         Suite.new(name: suite_name, config: config)
       end
+    end
+
+    def apply_flags_to_config!
+      config['log-level'] = options['log-level'] if options['log-level']
+      config['concurrency'] = options['concurrency'] if options['concurrency']
+    end
+
+    def execute(action, pattern = nil)
+      suites = suites_for(pattern)
+      results = Parallel.map(suites, in_threads: config['concurrency']) do |suite|
+        succeeded = suite.send(action)
+        [succeeded, suite]
+      end
+
+      failures = results.reject { |succeeded, result| succeeded }
+      failures.each do |_, suite|
+        console("Failed to #{action} #{suite.name}", severity: :error)
+        console("See #{suite.log_file} for full log output", severity: :error)
+      end
+
+      exit failures.any? ? 1 : 0
     end
   end
 end

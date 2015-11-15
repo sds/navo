@@ -22,5 +22,6 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'berkshelf', '~> 4.0'
   s.add_dependency 'docker-api', '~> 1.22'
+  s.add_dependency 'parallel', '~> 1.6.0'
   s.add_dependency 'thor', '~> 0'
 end

@@ -78,9 +78,18 @@ module Navo
     # Access the configuration as if it were a hash.
     #
     # @param key [String, Symbol]
-    # @return [Array, Hash, Number, String]
+    # @return [Array, Hash, Number, String, Symbol]
     def [](key)
       @options[key.to_s]
+    end
+
+    # Set the configuration as if it were a hash.
+    #
+    # @param key [String, Symbol]
+    # @param value [Array, Hash, Number, String, Symbol]
+    # @return [Array, Hash, Number, String]
+    def []=(key, value)
+      @options[key.to_s] = value
     end
 
     # Access the configuration as if it were a hash.
