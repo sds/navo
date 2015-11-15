@@ -67,6 +67,7 @@ module Navo
 
     def apply_flags_to_config!
       config['log-level'] = options['log-level'] if options['log-level']
+      Navo::Logger.level = config['log-level']
       config['concurrency'] = options['concurrency'] if options['concurrency']
     end
 

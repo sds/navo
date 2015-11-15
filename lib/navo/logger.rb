@@ -59,6 +59,7 @@ module Navo
       # for every chunk of log received--only logs which have newlines.
       # Thus we buffer the output and flush it once we have the full amount.
       @buffer_severity ||= severity
+      @buffer_level ||= ::Logger.const_get(severity.upcase)
       @buffer ||= ''
       @buffer += message
 
@@ -80,12 +81,15 @@ module Navo
     def flush_buffer
       if @buffer
         # This is shared amongst potentially many threads, so serialize access
-        self.class.mutex.synchronize do
-          self.class.logger << pretty_message(@buffer_severity, @buffer)
+        if @buffer_level >= self.class.level
+          self.class.mutex.synchronize do
+            self.class.logger << pretty_message(@buffer_severity, @buffer)
+          end
         end
 
         @buffer = nil
         @buffer_severity = nil
+        @buffer_level = nil
       end
     end
 

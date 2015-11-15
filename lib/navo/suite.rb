@@ -89,6 +89,7 @@ module Navo
     def create
       @logger.info "=====> Creating #{name}"
       container
+      @logger.info "=====> Created #{name}"
     end
 
     def converge
@@ -150,6 +151,9 @@ module Navo
       state['converged'] = false
       state['container'] = nil
       state.save
+
+      @logger.info "=====> Destroyed #{name}"
+      true
     end
 
     # Returns the {Docker::Image} used by this test suite, building it if
