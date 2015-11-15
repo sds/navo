@@ -54,16 +54,19 @@ module Navo
       @color_hash = {}
     end
 
-    def log(severity, message)
-      level = ::Logger.const_get(severity.upcase)
-      @logger.add(level, message)
-
+    def console(message, severity: :info)
       message = pretty_message(severity, message)
 
       # This is shared amongst potentially many threads, so serialize access
       self.class.mutex.synchronize do
         self.class.logger << message
       end
+    end
+
+    def log(severity, message)
+      level = ::Logger.const_get(severity.upcase)
+      @logger.add(level, message)
+      console(message, severity: severity)
     end
 
     %i[unknown fatal error warn info debug].each do |severity|

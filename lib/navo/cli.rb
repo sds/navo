@@ -40,7 +40,7 @@ module Navo
     def login(pattern)
       suites = suites_for(pattern)
       if suites.size > 1
-        Navo::Logger.logger << "Pattern matched more than one test suite\n"
+        logger.console "Pattern '#{pattern}' matched more than one test suite", severity: :error
         exit 1
       else
         suites.first.login
@@ -51,6 +51,10 @@ module Navo
 
     def config
       @config ||= Configuration.load_applicable
+    end
+
+    def logger
+      @logger ||= Navo::Logger.new
     end
 
     def suites_for(pattern)
