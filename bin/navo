@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+
+require 'navo/cli'
+
+Navo::CLI.start(ARGV)

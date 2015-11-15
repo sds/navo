@@ -1,8 +1,0 @@
-require 'marina/constants'
-require 'marina/errors'
-require 'marina/configuration'
-require 'marina/sandbox'
-require 'marina/suite'
-require 'marina/suite_state'
-require 'marina/utils'
-require 'marina/version'

@@ -1,8 +1,8 @@
 require 'berkshelf'
-require 'marina'
+require 'navo'
 require 'thor'
 
-module Marina
+module Navo
   # Command line application interface.
   class CLI < Thor
     desc 'create', 'create a container for test suite(s) to run within'

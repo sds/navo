@@ -1,20 +1,20 @@
 $LOAD_PATH << File.expand_path('../lib', __FILE__)
-require 'marina/constants'
-require 'marina/version'
+require 'navo/constants'
+require 'navo/version'
 
 Gem::Specification.new do |s|
-  s.name             = 'marina'
-  s.version          = Marina::VERSION
+  s.name             = 'navo'
+  s.version          = Navo::VERSION
   s.license          = 'MIT'
   s.summary          = 'Test Chef cookbooks in Docker containers'
   s.description      = s.summary
   s.authors          = ['Shane da Silva']
   s.email            = ['shane@dasilva.io']
-  s.homepage         = Marina::REPO_URL
+  s.homepage         = Navo::REPO_URL
 
   s.require_paths    = ['lib']
 
-  s.executables      = ['marina']
+  s.executables      = ['navo']
 
   s.files            = Dir['lib/**/*.rb']
 

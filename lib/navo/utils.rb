@@ -1,7 +1,7 @@
 require 'digest'
 require 'pathname'
 
-module Marina
+module Navo
   # A miscellaneous set of utility functions.
   module Utils
     module_function

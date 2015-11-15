@@ -2,7 +2,7 @@ require 'berkshelf'
 require 'fileutils'
 require 'pathname'
 
-module Marina
+module Navo
   # Manages the creation and maintenance of the test suite sandbox.
   #
   # The sandbox is just a directory that contains the files and configuration

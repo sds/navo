@@ -4,7 +4,7 @@ PreCommit:
   ExecutePermissions:
     enabled: true
     exclude:
-      - 'bin/marina'
+      - 'bin/navo'
 
   HardTabs:
     enabled: true

@@ -1,7 +1,7 @@
 require 'fileutils'
 require 'yaml'
 
-module Marina
+module Navo
   # Stores persisted state about a test suite.
   #
   # This allows information to carry forward between different invocations of

@@ -1,20 +1,20 @@
 require 'pathname'
 require 'yaml'
 
-module Marina
+module Navo
   # Stores runtime configuration for the application.
   #
   # This is intended to define helper methods for accessing configuration so
   # this logic can be shared amongst the various components of the system.
   class Configuration
     # Name of the configuration file.
-    FILE_NAME = '.marina.yaml'
+    FILE_NAME = '.navo.yaml'
 
     class << self
       # Loads appropriate configuration file given the current working
       # directory.
       #
-      # @return [Marina::Configuration]
+      # @return [Navo::Configuration]
       def load_applicable
         current_directory = File.expand_path(Dir.pwd)
         config_file = applicable_config_file(current_directory)
@@ -31,7 +31,7 @@ module Marina
 
       # Loads a configuration from a file.
       #
-      # @return [Marina::Configuration]
+      # @return [Navo::Configuration]
       def from_file(config_file)
         options =
           if yaml = YAML.load_file(config_file)

@@ -3,7 +3,7 @@ require 'digest'
 require 'json'
 require 'shellwords'
 
-module Marina
+module Navo
   # A test suite.
   class Suite
     attr_reader :name
@@ -203,7 +203,7 @@ module Marina
     end
 
     def storage_directory
-      File.join(repo_root, '.marina', 'suites', name)
+      File.join(repo_root, '.navo', 'suites', name)
     end
 
     def busser_directory

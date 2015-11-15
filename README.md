@@ -1,6 +1,6 @@
-# Marina
+# Navo
 
-`marina` is a framework for testing Chef cookbooks within Docker containers.
+`navo` is a framework for testing Chef cookbooks within Docker containers.
 
 It takes inspiration from the
 [test-kitchen](https://github.com/test-kitchen/test-kitchen) and
@@ -20,7 +20,7 @@ other than a Docker container, you should use those tools instead.
 ## Installation
 
 ```bash
-gem install marina
+gem install navo
 ```
 
 ## License
