@@ -126,6 +126,8 @@ module Marina
         container.stop
       end
 
+      container.remove(force: true)
+
       state['converged'] = false
       state['container'] = nil
       state.save
