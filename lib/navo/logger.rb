@@ -95,11 +95,11 @@ module Navo
       color_code = UI_COLORS[severity]
 
       prefix = "[#{@suite.name}] " if @suite
-      colored_prefix = "\e[#{color_for_string(@suite.name)}m#{prefix}\e[0m"
+      colored_prefix = "\e[#{color_for_string(@suite.name)}m#{prefix}\e[0m" if prefix
       message = message.to_s
       message = "\e[#{color_code}m#{message}\e[0m" if color_code
 
-      message = indent_output(prefix, colored_prefix, colored_prefix + message)
+      message = indent_output(prefix, colored_prefix, "#{colored_prefix}#{message}")
       message += "\n" unless message.end_with?("\n")
       message
     end

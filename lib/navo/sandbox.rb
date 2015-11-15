@@ -75,6 +75,7 @@ module Navo
       require 'berkshelf' # Lazily require so we don't have to pay the price every command
       Berkshelf.ui.mute do
         Berkshelf.logger = @logger
+        Celluloid.logger = @logger
         Berkshelf::Berksfile.from_file(berksfile).vendor(vendored_cookbooks_dir)
       end
 

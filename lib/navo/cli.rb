@@ -79,11 +79,17 @@ module Navo
 
       failures = results.reject { |succeeded, result| succeeded }
       failures.each do |_, suite|
-        console("Failed to #{action} #{suite.name}", severity: :error)
-        console("See #{suite.log_file} for full log output", severity: :error)
+        logger.console("Failed to #{action} #{suite.name}", severity: :error)
+        logger.console("See #{suite.log_file} for full log output", severity: :error)
       end
 
       exit failures.any? ? 1 : 0
+    rescue Interrupt
+      # Handle Ctrl-C
+      logger.console('INTERRUPTED', severity: :warn)
+    rescue => ex
+      logger.console("Unexpected error: #{ex.message}", severity: :fatal)
+      logger.console(ex.backrace.to_s, severity: :fatal)
     end
   end
 end
