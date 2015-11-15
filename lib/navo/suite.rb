@@ -131,16 +131,16 @@ module Navo
 
       if state['container']
         if @config['docker']['stop-command']
-          @logger.info "Stopping container via command #{@config['docker']['stop-command']}"
+          @logger.info "Stopping container #{container.id} via command #{@config['docker']['stop-command']}"
           exec(@config['docker']['stop-command'])
           container.wait(@config['docker'].fetch('stop-timeout', 10))
         else
-          @logger.info "Stopping container..."
+          @logger.info "Stopping container #{container.id}..."
           container.stop
         end
 
         begin
-          @logger.info('Removing container')
+          @logger.info("Removing container #{container.id}")
           container.remove(force: true)
         rescue Docker::Error::ServerError => ex
           @logger.warn ex.message
