@@ -1,3 +1,6 @@
+require 'digest'
+require 'pathname'
+
 module Marina
   # A miscellaneous set of utility functions.
   module Utils

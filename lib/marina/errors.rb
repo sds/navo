@@ -3,6 +3,9 @@ module Marina::Errors
   # Base class for all errors reported by this tool.
   class MarinaError < StandardError; end
 
+  # Raised when a command on a container fails.
+  class ExecutionError < MarinaError; end
+
   # Base class for all configuration-related errors.
   class ConfigurationError < MarinaError; end
 

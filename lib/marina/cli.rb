@@ -1,37 +1,33 @@
 require 'berkshelf'
-require 'fileutils'
-require 'docker'
-require 'json'
 require 'marina'
-require 'tmpdir'
 require 'thor'
 
 module Marina
   # Command line application interface.
   class CLI < Thor
-    # Set of semantic exit codes we can return.
-    #
-    # @see http://www.gsp.com/cgi-bin/man.cgi?section=3&topic=sysexits
-    module ExitCodes
-      OK          = 0   # Successful execution
-      USAGE       = 64  # User error (bad command line or invalid input)
-      SOFTWARE    = 70  # Internal software error (bug)
-      CONFIG      = 78  # Configuration error (invalid file or options)
-    end
-
     desc 'create', 'create a container for test suite(s) to run within'
     def create(pattern = nil)
-      suites_for(pattern).each(&:create)
+      exit suites_for(pattern).map(&:create).all? ? 0 : 1
     end
 
     desc 'converge', 'run Chef for test suite(s)'
     def converge(pattern = nil)
-      suites_for(pattern).each(&:converge)
+      exit suites_for(pattern).map(&:converge).all? ? 0 : 1
     end
 
-    desc 'test', 'run test suite(s)'
+    desc 'verify', 'run test suite(s)'
+    def verify(pattern = nil)
+      exit suites_for(pattern).map(&:verify).all? ? 0 : 1
+    end
+
+    desc 'test', 'converge and run test suite(s)'
     def test(pattern = nil)
-      suites_for(pattern).each(&:test)
+      exit suites_for(pattern).map(&:test).all? ? 0 : 1
+    end
+
+    desc 'destroy', 'clean up test suite(s)'
+    def destroy(pattern = nil)
+      exit suites_for(pattern).map(&:destroy).all? ? 0 : 1
     end
 
     desc 'login', "open a shell inside a suite's container"
@@ -39,6 +35,7 @@ module Marina
       suites = suites_for(pattern)
       if suites.size > 1
         puts 'Pattern matched more than one test suite'
+        exit 1
       else
         suites.first.login
       end

@@ -1,4 +1,6 @@
 require 'docker'
+require 'digest'
+require 'json'
 require 'shellwords'
 
 module Marina
@@ -43,13 +45,21 @@ module Marina
 
     # Execte a command on the container.
     def exec(args)
-      system("docker exec #{container.id} #{args.shelljoin}")
+      container.exec(args) do |_stream, chunk|
+        STDOUT.print chunk
+      end
+    end
+
+    # Execute a command on the container, raising an error if it exists
+    # unsuccessfully.
+    def exec!(args)
+      out, err, status = exec(args)
+      raise Error::ExecutionError, "STDOUT:#{out}\nSTDERR:#{err}" unless status == 0
+      [out, err, status]
     end
 
     def login
-      # HACK: Can't get TTY working with the container object directly, so
-      # resort to invoking via command line for now.
-      system("docker exec -it #{container.id} #{@config['docker']['shell']}")
+      Kernel.exec('docker', 'exec', '-it', container.id, *@config['docker']['shell-command'])
     end
 
     def chef_solo_config
@@ -82,21 +92,43 @@ module Marina
 
       sandbox.update_chef_config
 
-      exec(%W[
+      _, _, status = exec(%W[
         /opt/chef/embedded/bin/chef-solo
         --config=#{File.join(chef_config_dir, 'solo.rb')}
         --json-attributes=#{File.join(chef_config_dir, 'first-boot.json')}
         --force-formatter
       ])
+
+      state['converged'] = status == 0
+      state.save
+      state['converged']
     end
 
-    def test
+    def verify
       create
-      converge
 
       sandbox.update_test_config
 
-      exec(['/usr/bin/env'] + busser_env + %W[#{busser_bin} test])
+      _, _, status = exec(['/usr/bin/env'] + busser_env + %W[#{busser_bin} test])
+      status == 0
+    end
+
+    def test
+      return false unless converge
+      verify
+    end
+
+    def destroy
+      if @config['docker']['stop-command']
+        exec(@config['docker']['stop-command'])
+        container.wait(@config['docker'].fetch('stop-timeout', 10))
+      else
+        container.stop
+      end
+
+      state['converged'] = false
+      state['container'] = nil
+      state.save
     end
 
     # Returns the {Docker::Image} used by this test suite, building it if
@@ -106,13 +138,25 @@ module Marina
     def image
      @image ||=
        begin
-         # Build directory is wherever the Dockerfile is located
-         build_dir = File.expand_path(File.dirname(@config['docker']['dockerfile']),
-                                      @config.repo_root)
+         state['images'] ||= {}
 
-         Docker::Image.build_from_dir(build_dir) do |chunk|
-           if (log = JSON.parse(chunk)) && log.has_key?('stream')
-             STDOUT.print log['stream']
+         # Build directory is wherever the Dockerfile is located
+         dockerfile = File.expand_path(@config['docker']['dockerfile'], repo_root)
+         build_dir = File.dirname(dockerfile)
+
+         dockerfile_hash = Digest::SHA256.new.hexdigest(File.read(dockerfile))
+         image_id = state['images'][dockerfile_hash]
+
+         if image_id && Docker::Image.exist?(image_id)
+           Docker::Image.get(image_id)
+         else
+           Docker::Image.build_from_dir(build_dir) do |chunk|
+             if (log = JSON.parse(chunk)) && log.has_key?('stream')
+               STDOUT.print log['stream']
+             end
+           end.tap do |image|
+             state['images'][dockerfile_hash] = image.id
+             state.save
            end
          end
        end
@@ -125,20 +169,39 @@ module Marina
     def container
       @container ||=
         begin
-          Docker::Container.create(
-            'Image' => image.id,
-            'OpenStdin' => true,
-            'StdinOnce' => true,
-            'HostConfig' => {
-              'Privileged' => @config['docker']['privileged'],
-              'Binds' => @config['docker']['volumes'],
-            },
-          ).tap(&:start)
+          if state['container']
+            begin
+              container = Docker::Container.get(state['container'])
+            rescue Docker::Error::NotFoundError
+              # Continue creating the container since it doesn't exist
+            end
+          end
+
+          if !container
+            container = Docker::Container.create(
+              'Image' => image.id,
+              'OpenStdin' => true,
+              'StdinOnce' => true,
+              'HostConfig' => {
+                'Privileged' => @config['docker']['privileged'],
+                'Binds' => @config['docker']['volumes'],
+              },
+            )
+
+            state['container'] = container.id
+            state.save
+          end
+
+          container.start
         end
     end
 
     def sandbox
       @sandbox ||= Sandbox.new(suite: self)
+    end
+
+    def storage_directory
+      File.join(repo_root, '.marina', 'suites', name)
     end
 
     def busser_directory
@@ -156,6 +219,10 @@ module Marina
         GEM_PATH=#{File.join(busser_directory, 'gems')}
         GEM_CACHE=#{File.join(busser_directory, %w[gems cache])}
       ]
+    end
+
+    def state
+      @state ||= SuiteState.new(suite: self).tap(&:load)
     end
   end
 end
