@@ -138,8 +138,12 @@ module Navo
           container.stop
         end
 
-        @logger.info('Removing container')
-        container.remove(force: true)
+        begin
+          @logger.info('Removing container')
+          container.remove(force: true)
+        rescue Docker::Error::ServerError => ex
+          @logger.warn ex.message
+        end
       end
 
       state['converged'] = false
@@ -201,7 +205,7 @@ module Navo
               container = Docker::Container.get(state['container'])
               @logger.debug "Loaded existing container #{container.id}"
             rescue Docker::Error::NotFoundError
-              @logger.debug "Container #{container.id} no longer exists"
+              @logger.debug "Container #{state['container']} no longer exists"
             end
           end
 
