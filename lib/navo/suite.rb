@@ -119,11 +119,13 @@ module Navo
     end
 
     def destroy
-      if @config['docker']['stop-command']
-        exec(@config['docker']['stop-command'])
-        container.wait(@config['docker'].fetch('stop-timeout', 10))
-      else
-        container.stop
+      if state['container']
+        if @config['docker']['stop-command']
+          exec(@config['docker']['stop-command'])
+          container.wait(@config['docker'].fetch('stop-timeout', 10))
+        else
+          container.stop
+        end
       end
 
       container.remove(force: true)
