@@ -11,6 +11,7 @@ module Navo
     def initialize(name:, config:)
       @name = name
       @config = config
+      @logger = Navo::Logger.new(suite: self)
     end
 
     def repo_root
@@ -35,25 +36,27 @@ module Navo
 
     # Copy file/directory from host to container.
     def copy(from:, to:)
+      @logger.debug("Copying file #{from} on host to file #{to} in container")
       system("docker cp #{from} #{container.id}:#{to}")
     end
 
     # Write contents to a file on the container.
     def write(file:, content:)
+      @logger.debug("Writing content #{content.inspect} to file #{file} in container")
       container.exec(%w[bash -c] + ["cat > #{file}"], stdin: StringIO.new(content))
     end
 
     # Execte a command on the container.
-    def exec(args)
+    def exec(args, severity: ::Logger::DEBUG)
       container.exec(args) do |_stream, chunk|
-        STDOUT.print chunk
+        @logger.log(severity, chunk)
       end
     end
 
     # Execute a command on the container, raising an error if it exists
     # unsuccessfully.
-    def exec!(args)
-      out, err, status = exec(args)
+    def exec!(args, severity: ::Logger::DEBUG)
+      out, err, status = exec(args, severity: severity)
       raise Error::ExecutionError, "STDOUT:#{out}\nSTDERR:#{err}" unless status == 0
       [out, err, status]
     end
@@ -84,12 +87,14 @@ module Navo
     end
 
     def create
+      @logger.info "=====> Creating #{name}"
       container
     end
 
     def converge
       create
 
+      @logger.info "=====> Converging #{name}"
       sandbox.update_chef_config
 
       _, _, status = exec(%W[
@@ -107,6 +112,7 @@ module Navo
     def verify
       create
 
+      @logger.info "=====> Verifying #{name}"
       sandbox.update_test_config
 
       _, _, status = exec(['/usr/bin/env'] + busser_env + %W[#{busser_bin} test])
@@ -119,16 +125,21 @@ module Navo
     end
 
     def destroy
+      @logger.info "=====> Destroying #{name}"
+
       if state['container']
         if @config['docker']['stop-command']
+          @logger.info "Stopping container via command #{@config['docker']['stop-command']}"
           exec(@config['docker']['stop-command'])
           container.wait(@config['docker'].fetch('stop-timeout', 10))
         else
+          @logger.info "Stopping container..."
           container.stop
         end
-      end
 
-      container.remove(force: true)
+        @logger.info('Removing container')
+        container.remove(force: true)
+      end
 
       state['converged'] = false
       state['container'] = nil
@@ -149,14 +160,21 @@ module Navo
          build_dir = File.dirname(dockerfile)
 
          dockerfile_hash = Digest::SHA256.new.hexdigest(File.read(dockerfile))
+         @logger.debug "Dockerfile hash is #{dockerfile_hash}"
          image_id = state['images'][dockerfile_hash]
 
          if image_id && Docker::Image.exist?(image_id)
+           @logger.debug "Previous image #{image_id} matching Dockerfile already exists"
+           @logger.debug "Using image #{image_id} instead of building new image"
            Docker::Image.get(image_id)
          else
+           @logger.debug "No image exists for #{dockerfile}"
+           @logger.debug "Building a new image with #{dockerfile} " \
+                         "using #{build_dir} as build context directory"
+
            Docker::Image.build_from_dir(build_dir) do |chunk|
              if (log = JSON.parse(chunk)) && log.has_key?('stream')
-               STDOUT.print log['stream']
+               @logger.info log['stream']
              end
            end.tap do |image|
              state['images'][dockerfile_hash] = image.id
@@ -173,15 +191,22 @@ module Navo
     def container
       @container ||=
         begin
+          # Dummy reference so we build the image first (ensuring its log output
+          # appears before the container creation log output)
+          image
+
           if state['container']
             begin
               container = Docker::Container.get(state['container'])
+              @logger.debug "Loaded existing container #{container.id}"
             rescue Docker::Error::NotFoundError
-              # Continue creating the container since it doesn't exist
+              @logger.debug "Container #{container.id} no longer exists"
             end
           end
 
           if !container
+            @logger.info "Building a new container from image #{image.id}"
+
             container = Docker::Container.create(
               'Image' => image.id,
               'OpenStdin' => true,
@@ -196,16 +221,35 @@ module Navo
             state.save
           end
 
-          container.start
+          unless started?(container.id)
+            @logger.info "Starting container #{container.id}"
+            container.start
+            container.start
+          else
+            @logger.debug "Container #{container.id} already running"
+          end
+
+          container
         end
     end
 
+    def started?(container_id)
+      # There does not appear to be a simple "status" API we can use for an
+      # individual container
+      Docker::Container.all(all: true,
+                            filters: { id: [container_id],
+                            status: ['running'] }.to_json).any?
+    end
+
     def sandbox
-      @sandbox ||= Sandbox.new(suite: self)
+      @sandbox ||= Sandbox.new(suite: self, logger: @logger)
     end
 
     def storage_directory
-      File.join(repo_root, '.navo', 'suites', name)
+      @storage_directory ||=
+        File.join(repo_root, '.navo', 'suites', name).tap do |path|
+          FileUtils.mkdir_p(path)
+        end
     end
 
     def busser_directory
@@ -226,7 +270,11 @@ module Navo
     end
 
     def state
-      @state ||= SuiteState.new(suite: self).tap(&:load)
+      @state ||= SuiteState.new(suite: self, logger: @logger).tap(&:load)
+    end
+
+    def log_file
+      @log_file ||= File.join(storage_directory, 'log.log')
     end
   end
 end

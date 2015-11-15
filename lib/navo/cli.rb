@@ -4,6 +4,13 @@ require 'thor'
 module Navo
   # Command line application interface.
   class CLI < Thor
+    def initialize(*args)
+      super
+      Navo::Logger.output = STDOUT
+      STDOUT.sync = true
+      Navo::Logger.level = config['log-level']
+    end
+
     desc 'create', 'create a container for test suite(s) to run within'
     def create(pattern = nil)
       exit suites_for(pattern).map(&:create).all? ? 0 : 1
@@ -33,7 +40,7 @@ module Navo
     def login(pattern)
       suites = suites_for(pattern)
       if suites.size > 1
-        puts 'Pattern matched more than one test suite'
+        Navo::Logger.logger << "Pattern matched more than one test suite\n"
         exit 1
       else
         suites.first.login

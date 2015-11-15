@@ -1,6 +1,7 @@
 require 'navo/constants'
 require 'navo/errors'
 require 'navo/configuration'
+require 'navo/logger'
 require 'navo/sandbox'
 require 'navo/suite'
 require 'navo/suite_state'

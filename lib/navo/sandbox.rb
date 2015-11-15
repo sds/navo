@@ -8,8 +8,9 @@ module Navo
   # needed to run a test within the suite's container. A temporary directory on
   # the host is maintained
   class Sandbox
-    def initialize(suite:)
+    def initialize(suite:, logger:)
       @suite = suite
+      @logger = logger
     end
 
     def update_chef_config
@@ -43,12 +44,12 @@ module Navo
         # between host and container (test-kitchen does the same thing).
         helpers_directory = File.join(test_files_dir, 'helpers', framework)
         if File.directory?(helpers_directory)
-          puts "Transferring #{framework} test suite helpers..."
+          @logger.info "Transferring #{framework} test suite helpers..."
           @suite.copy(from: File.join(helpers_directory, '.'),
                       to: container_framework_dir)
         end
 
-        puts "Transferring #{framework} tests..."
+        @logger.info "Transferring #{framework} tests..."
         @suite.copy(from: File.join(host_framework_dir, '.'),
                     to: container_framework_dir)
       end
@@ -63,10 +64,14 @@ module Navo
       vendored_cookbooks_dir = File.join(storage_directory, 'cookbooks')
       berksfile = File.expand_path(@suite['chef']['berksfile'], @suite.repo_root)
 
-      puts 'Resolving Berksfile...'
+      @logger.info 'Resolving Berksfile...'
       @suite.exec!(%w[rm -rf] + [vendored_cookbooks_dir])
+
       require 'berkshelf' # Lazily require so we don't have to pay the price every command
-      Berkshelf::Berksfile.from_file(berksfile).vendor(vendored_cookbooks_dir)
+      Berkshelf.ui.mute do
+        Berkshelf.logger = @logger
+        Berkshelf::Berksfile.from_file(berksfile).vendor(vendored_cookbooks_dir)
+      end
 
       @suite.copy(from: File.join(storage_directory, 'cookbooks', '.'),
                   to: File.join(@suite.chef_run_dir, 'cookbooks'))
@@ -74,7 +79,7 @@ module Navo
 
     def install_chef_directories
       %w[data_bags environments roles].each do |dir|
-        puts "Preparing #{dir} directory..."
+        @logger.info "Preparing #{dir} directory..."
         host_dir = File.join(@suite.repo_root, dir)
         container_dir = File.join(@suite.chef_run_dir, dir)
 
@@ -86,13 +91,14 @@ module Navo
     def install_chef_config
       secret_file = File.expand_path(@suite['chef']['secret'], @suite.repo_root)
       secret_file_basename = File.basename(secret_file)
+      @logger.info "Preparing #{secret_file_basename}"
       @suite.copy(from: secret_file,
                   to: File.join(@suite.chef_config_dir, secret_file_basename))
 
-      puts 'Preparing solo.rb'
+      @logger.info 'Preparing solo.rb'
       @suite.write(file: File.join(@suite.chef_config_dir, 'solo.rb'),
                    content: @suite.chef_solo_config)
-      puts 'Preparing first-boot.json'
+      @logger.info 'Preparing first-boot.json'
       @suite.write(file: File.join(@suite.chef_config_dir, 'first-boot.json'),
                    content: @suite.node_attributes.to_json)
     end
@@ -100,6 +106,7 @@ module Navo
     def storage_directory
       @storage_directory ||=
         @suite.storage_directory.tap do |path|
+          @logger.debug("Ensuring storage directory #{path} exists")
           FileUtils.mkdir_p(path)
         end
     end

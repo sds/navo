@@ -9,8 +9,9 @@ module Navo
   class SuiteState
     FILE_NAME = 'state.yaml'
 
-    def initialize(suite:)
+    def initialize(suite:, logger:)
       @suite = suite
+      @logger = logger
     end
 
     # Access the state as if it were a hash.
@@ -33,19 +34,23 @@ module Navo
     def load
       @hash =
         if File.exist?(file_path) && yaml = YAML.load_file(file_path)
+          @logger.debug "Loading state from #{file_path}"
           yaml.to_hash
         else
+          @logger.debug "No state file #{file_path} exists; assuming empty state"
           {} # Handle empty files
         end
     end
 
     # Persists state to disk.
     def save
+      @logger.debug "Saving state to #{file_path}"
       File.open(file_path, 'w') { |f| f.write(@hash.to_yaml) }
     end
 
     # Destroy persisted state.
     def destroy
+      @logger.debug "Removing state from #{file_path}"
       @hash = {}
       FileUtils.rm_f(file_path)
     end
