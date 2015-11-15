@@ -54,24 +54,38 @@ module Navo
       @color_hash = {}
     end
 
-    def console(message, severity: :info)
-      message = pretty_message(severity, message)
+    def console(message, severity: :info, flush: true)
+      # In order to improve the output displayed, we don't want to print a line
+      # for every chunk of log received--only logs which have newlines.
+      # Thus we buffer the output and flush it once we have the full amount.
+      @buffer_severity ||= severity
+      @buffer ||= ''
+      @buffer += message
 
-      # This is shared amongst potentially many threads, so serialize access
-      self.class.mutex.synchronize do
-        self.class.logger << message
-      end
+      flush_buffer if flush
     end
 
-    def log(severity, message)
+    def log(severity, message, flush: true)
       level = ::Logger.const_get(severity.upcase)
       @logger.add(level, message)
-      console(message, severity: severity)
+      console(message, severity: severity, flush: flush)
     end
 
     %i[unknown fatal error warn info debug].each do |severity|
       define_method severity do |msg|
-        log(severity, msg)
+        log(severity, msg, flush: true)
+      end
+    end
+
+    def flush_buffer
+      if @buffer
+        # This is shared amongst potentially many threads, so serialize access
+        self.class.mutex.synchronize do
+          self.class.logger << pretty_message(@buffer_severity, @buffer)
+        end
+
+        @buffer = nil
+        @buffer_severity = nil
       end
     end
 
@@ -79,15 +93,25 @@ module Navo
 
     def pretty_message(severity, message)
       color_code = UI_COLORS[severity]
-      prefix = @suite ? "\e[#{color_for_string(@suite.name)}m[#{@suite.name}]\e[0m " : ""
+
+      prefix = "[#{@suite.name}] " if @suite
+      colored_prefix = "\e[#{color_for_string(@suite.name)}m#{prefix}\e[0m"
+      message = message.to_s
       message = "\e[#{color_code}m#{message}\e[0m" if color_code
+
+      message = indent_output(prefix, colored_prefix, colored_prefix + message)
       message += "\n" unless message.end_with?("\n")
-      "#{prefix}#{message}"
+      message
     end
 
     # Returns a deterministic color code for the given string.
     def color_for_string(string)
       @color_hash[string] ||= (Digest::MD5.hexdigest(string)[0..8].to_i(16) % 6) + 31
+    end
+
+    def indent_output(prefix, colored_prefix, message)
+      return message unless prefix
+      message.gsub("\n", "\n#{colored_prefix}")
     end
   end
 end

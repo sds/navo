@@ -49,7 +49,7 @@ module Navo
     # Execte a command on the container.
     def exec(args, severity: :debug)
       container.exec(args) do |_stream, chunk|
-        @logger.log(severity, chunk)
+        @logger.log(severity, chunk, flush: chunk.end_with?("\n"))
       end
     end
 
@@ -102,6 +102,7 @@ module Navo
         --config=#{File.join(chef_config_dir, 'solo.rb')}
         --json-attributes=#{File.join(chef_config_dir, 'first-boot.json')}
         --force-formatter
+        --no-color
       ], severity: :info)
 
       state['converged'] = status == 0
