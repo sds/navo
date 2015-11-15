@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+
+require 'marina/cli'
+
+Marina::CLI.start(ARGV)
