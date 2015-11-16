@@ -30,6 +30,7 @@ module Navo
     # @param value [Array, Hash, Number, String]
     def []=(key, value)
       @mutex.synchronize do
+        @logger.debug "Updating state '#{key}' to #{value.inspect}"
         @hash[key.to_s] = value
         save unless @modifying
         value
