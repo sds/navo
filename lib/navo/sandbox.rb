@@ -66,21 +66,21 @@ module Navo
     def install_cookbooks
       @suite.exec!(%w[mkdir -p] + [@suite.chef_config_dir, @suite.chef_run_dir])
 
-      vendored_cookbooks_dir = File.join(storage_directory, 'cookbooks')
-      berksfile = File.expand_path(@suite['chef']['berksfile'], @suite.repo_root)
+      Berksfile.install(logger: @logger)
 
-      @logger.info 'Resolving Berksfile...'
-      @suite.exec!(%w[rm -rf] + [vendored_cookbooks_dir])
+      @logger.info 'Installing cookbooks...'
+      host_cookbooks_dir = File.join(@suite.repo_root, 'cookbooks')
+      container_cookbooks_dir = File.join(@suite.chef_run_dir, 'cookbooks')
 
-      require 'berkshelf' # Lazily require so we don't have to pay the price every command
-      Berkshelf.ui.mute do
-        Berkshelf.logger = @logger
-        Celluloid.logger = @logger
-        Berkshelf::Berksfile.from_file(berksfile).vendor(vendored_cookbooks_dir)
+      changed = @suite.path_changed?(Berksfile.cache_directory) ||
+                @suite.path_changed?(host_cookbooks_dir)
+
+      if changed
+        @logger.info 'Installing cookbooks...'
+        Berksfile.vendor(suite: @suite, directory: container_cookbooks_dir)
+      else
+        @logger.info 'No cookbooks changed; nothing to install'
       end
-
-      @suite.copy(from: File.join(storage_directory, 'cookbooks', '.'),
-                  to: File.join(@suite.chef_run_dir, 'cookbooks'))
     end
 
     def install_chef_directories
@@ -89,8 +89,7 @@ module Navo
         host_dir = File.join(@suite.repo_root, dir)
         container_dir = File.join(@suite.chef_run_dir, dir)
 
-        @suite.exec(%w[rm -rf] + [container_dir])
-        @suite.copy(from: host_dir, to: container_dir)
+        @suite.copy_if_changed(from: host_dir, to: container_dir, replace: true)
       end
     end
 
@@ -98,8 +97,8 @@ module Navo
       secret_file = File.expand_path(@suite['chef']['secret'], @suite.repo_root)
       secret_file_basename = File.basename(secret_file)
       @logger.info "Preparing #{secret_file_basename}"
-      @suite.copy(from: secret_file,
-                  to: File.join(@suite.chef_config_dir, secret_file_basename))
+      @suite.copy_if_changed(from: secret_file,
+                             to: File.join(@suite.chef_config_dir, secret_file_basename))
 
       @logger.info 'Preparing solo.rb'
       @suite.write(file: File.join(@suite.chef_config_dir, 'solo.rb'),

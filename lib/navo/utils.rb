@@ -37,6 +37,12 @@ module Navo
       end
     end
 
+    def path_hash(path)
+      if File.exist?(path)
+        `tar -cf - #{path} 2>/dev/null | md5sum`.split(' ', 2).first
+      end
+    end
+
     # Convert string containing camel case or spaces into snake case.
     #
     # @see stackoverflow.com/questions/1509915/converting-camel-case-to-underscore-case-in-ruby

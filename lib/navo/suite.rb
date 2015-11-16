@@ -13,6 +13,10 @@ module Navo
       @config = config
       @logger = Navo::Logger.new(suite: self)
       @global_state = global_state
+
+      state.modify do |local|
+        local['files'] ||= {}
+      end
     end
 
     def repo_root
@@ -39,6 +43,43 @@ module Navo
     def copy(from:, to:)
       @logger.debug("Copying file #{from} on host to file #{to} in container")
       system("docker cp #{from} #{container.id}:#{to}")
+    end
+
+    def copy_if_changed(from:, to:, replace: false)
+      if File.directory?(from)
+        exec(%w[mkdir -p] + [to])
+      else
+        exec(%w[mkdir -p] + [File.dirname(to)])
+      end
+
+      current_hash = Utils.path_hash(from)
+      old_hash = state['files'][from.to_s]
+
+      if !old_hash || current_hash != old_hash
+        if old_hash
+          @logger.debug "Previous hash recorded for #{from} (#{old_hash}) " \
+                        "does not match current hash (#{current_hash})"
+        else
+          @logger.debug "No previous hash recorded for #{from}"
+        end
+
+        state.modify do |local|
+          local['files'][from.to_s] = current_hash
+        end
+
+        exec(%w[rm -rf] + [to]) if replace
+        copy(from: from, to: to)
+        return true
+      end
+
+      false
+    end
+
+    def path_changed?(path)
+      current_hash = Utils.path_hash(path)
+      old_hash = state['files'][path.to_s]
+
+      !old_hash || current_hash != old_hash
     end
 
     # Write contents to a file on the container.
@@ -108,7 +149,7 @@ module Navo
         --no-color
       ], severity: :info)
 
-      state['converged'] = status == 0
+      status == 0
     end
 
     def verify
@@ -148,11 +189,10 @@ module Navo
         end
       end
 
-      state['converged'] = false
-      state['container'] = nil
-
       @logger.info "=====> Destroyed #{name}"
       true
+    ensure
+      state.destroy
     end
 
     # Returns the {Docker::Image} used by this test suite, building it if
