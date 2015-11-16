@@ -37,8 +37,13 @@ module Navo
 
     desc 'login', "open a shell inside a suite's container"
     def login(pattern)
+      apply_flags_to_config!
+
       suites = suites_for(pattern)
-      if suites.size > 1
+      if suites.size == 0
+        logger.console "Pattern '#{pattern}' matched no test suites", severity: :error
+        exit 1
+      elsif suites.size > 1
         logger.console "Pattern '#{pattern}' matched more than one test suite", severity: :error
         exit 1
       else
