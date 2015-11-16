@@ -16,7 +16,7 @@ module Navo
   class Logger
     UI_COLORS = {
       unknown: 35, # purple
-      fatal: 39,   # hot red
+      fatal: 31,   # red
       error: 31,   # red
       warn: 33,    # yellow
       info: nil,   # normal
@@ -68,7 +68,7 @@ module Navo
 
     def log(severity, message, flush: true)
       level = ::Logger.const_get(severity.upcase)
-      @logger.add(level, message)
+      @logger.add(level, message) if @logger
       console(message, severity: severity, flush: flush)
     end
 

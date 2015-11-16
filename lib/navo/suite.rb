@@ -8,10 +8,11 @@ module Navo
   class Suite
     attr_reader :name
 
-    def initialize(name:, config:)
+    def initialize(name:, config:, global_state:)
       @name = name
       @config = config
       @logger = Navo::Logger.new(suite: self)
+      @global_state = global_state
     end
 
     def repo_root
@@ -89,7 +90,8 @@ module Navo
     def create
       @logger.info "=====> Creating #{name}"
       container
-      @logger.info "=====> Created #{name}"
+      @logger.info "=====> Created #{name} in container #{container.id}"
+      container
     end
 
     def converge
@@ -107,8 +109,6 @@ module Navo
       ], severity: :info)
 
       state['converged'] = status == 0
-      state.save
-      state['converged']
     end
 
     def verify
@@ -150,7 +150,6 @@ module Navo
 
       state['converged'] = false
       state['container'] = nil
-      state.save
 
       @logger.info "=====> Destroyed #{name}"
       true
@@ -163,7 +162,9 @@ module Navo
     def image
      @image ||=
        begin
-         state['images'] ||= {}
+         @global_state.modify do |global|
+           global['images'] ||= {}
+         end
 
          # Build directory is wherever the Dockerfile is located
          dockerfile = File.expand_path(@config['docker']['dockerfile'], repo_root)
@@ -171,7 +172,7 @@ module Navo
 
          dockerfile_hash = Digest::SHA256.new.hexdigest(File.read(dockerfile))
          @logger.debug "Dockerfile hash is #{dockerfile_hash}"
-         image_id = state['images'][dockerfile_hash]
+         image_id = @global_state['images'][dockerfile_hash]
 
          if image_id && Docker::Image.exist?(image_id)
            @logger.debug "Previous image #{image_id} matching Dockerfile already exists"
@@ -187,8 +188,9 @@ module Navo
                @logger.info log['stream']
              end
            end.tap do |image|
-             state['images'][dockerfile_hash] = image.id
-             state.save
+             @global_state.modify do |global|
+               global['images'][dockerfile_hash] = image.id
+             end
            end
          end
        end
@@ -228,12 +230,10 @@ module Navo
             )
 
             state['container'] = container.id
-            state.save
           end
 
           unless started?(container.id)
             @logger.info "Starting container #{container.id}"
-            container.start
             container.start
           else
             @logger.debug "Container #{container.id} already running"
@@ -280,7 +280,8 @@ module Navo
     end
 
     def state
-      @state ||= SuiteState.new(suite: self, logger: @logger).tap(&:load)
+      @state ||= StateFile.new(file: File.join(storage_directory, 'state.yaml'),
+                               logger: @logger).tap(&:load)
     end
 
     def log_file

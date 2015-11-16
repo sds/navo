@@ -61,7 +61,7 @@ module Navo
       suite_names.select! { |name| name =~ /#{pattern}/ } if pattern
 
       suite_names.map do |suite_name|
-        Suite.new(name: suite_name, config: config)
+        Suite.new(name: suite_name, config: config, global_state: @global_state)
       end
     end
 
@@ -69,6 +69,10 @@ module Navo
       config['log-level'] = options['log-level'] if options['log-level']
       Navo::Logger.level = config['log-level']
       config['concurrency'] = options['concurrency'] if options['concurrency']
+
+      # Initialize here so config is correctly set
+      @global_state = StateFile.new(file: File.join(config.repo_root, %w[.navo global-state.yaml]),
+                                    logger: logger).tap(&:load)
     end
 
     def execute(action, pattern = nil)
@@ -90,7 +94,7 @@ module Navo
       logger.console('INTERRUPTED', severity: :warn)
     rescue => ex
       logger.console("Unexpected error: #{ex.message}", severity: :fatal)
-      logger.console(ex.backrace.to_s, severity: :fatal)
+      logger.console(ex.backtrace.join("\n"), severity: :fatal)
     end
   end
 end
