@@ -22,3 +22,5 @@ module Navo
 end
 
 Navo.mutex = Mutex.new
+
+Excon.defaults[:read_timeout] = 600

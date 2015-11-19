@@ -77,6 +77,7 @@ module Navo
 
       # Initialize here so config is correctly set
       Berksfile.path = File.expand_path(config['chef']['berksfile'], config.repo_root)
+      Berksfile.config = config
       @global_state = StateFile.new(file: File.join(config.repo_root, %w[.navo global-state.yaml]),
                                     logger: logger).tap(&:load)
     end

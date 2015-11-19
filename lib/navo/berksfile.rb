@@ -1,3 +1,5 @@
+require 'fileutils'
+
 module Navo
   # A global Berksfile to be shared amongst all threads.
   #
@@ -6,33 +8,44 @@ module Navo
   class Berksfile
     class << self
       attr_accessor :path
+      attr_accessor :config
 
-      def install(logger: nil)
-        Navo.synchronize do
-          if @installed
-            logger.info 'Berksfile cookbooks already resolved'
-            return
-          end
-
-          logger.info 'Resolving Berksfile...'
-          require 'berkshelf' # Lazily require so we don't have to load for every command
-          Berkshelf.logger = Celluloid.logger = logger
-          Berkshelf.ui.mute { Berkshelf::Installer.new(berksfile).run }
-          Celluloid.logger = nil # Ignore annoying shutdown messages
-
-          @installed = true
-        end
+      def load
+        require 'berkshelf' # Lazily require so we don't have to load for every command
+        berksfile
       end
 
-      def vendor(suite:, directory:)
-        Dir.mktmpdir('navo-berks') do |tmpdir|
-          Berkshelf.ui.mute { berksfile.vendor(tmpdir) }
-          suite.copy(from: tmpdir, to: directory)
+      def install(logger: nil)
+        if @installed
+          logger.info 'Berksfile cookbooks already resolved'
+          return
         end
+
+        logger.info 'Installing Berksfile...'
+        Berkshelf.logger = Celluloid.logger = logger
+        Berkshelf.ui.mute { Berkshelf::Installer.new(berksfile).run }
+        Celluloid.logger = nil # Ignore annoying shutdown messages
+
+        @installed = true
+      end
+
+      def vendor(logger:)
+          Berkshelf.logger = Celluloid.logger = logger
+          Berkshelf.ui.mute { berksfile.vendor(vendor_directory) }
+          Celluloid.logger = nil # Ignore annoying shutdown messages
       end
 
       def cache_directory
         Berkshelf::CookbookStore.default_path
+      end
+
+      def vendor_directory
+        @vendor_directory ||=
+          FileUtils.mkdir_p(File.join(config.repo_root, %w[.navo vendored-cookbooks])).first
+      end
+
+      def lockfile_path
+        berksfile.lockfile.filepath
       end
 
       private

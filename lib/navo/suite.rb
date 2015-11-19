@@ -79,6 +79,10 @@ module Navo
       current_hash = Utils.path_hash(path)
       old_hash = state['files'][path.to_s]
 
+      state.modify do |local|
+        local['files'][path.to_s] = current_hash
+      end
+
       !old_hash || current_hash != old_hash
     end
 
@@ -265,7 +269,12 @@ module Navo
               'StdinOnce' => true,
               'HostConfig' => {
                 'Privileged' => @config['docker']['privileged'],
-                'Binds' => @config['docker']['volumes'],
+                'Binds' => @config['docker']['volumes'] + %W[
+                  #{Berksfile.vendor_directory}:#{File.join(chef_run_dir, 'cookbooks')}
+                  #{File.join(repo_root, 'data_bags')}:#{File.join(chef_run_dir, 'data_bags')}
+                  #{File.join(repo_root, 'environments')}:#{File.join(chef_run_dir, 'environments')}
+                  #{File.join(repo_root, 'roles')}:#{File.join(chef_run_dir, 'roles')}
+                ],
               },
             )
 

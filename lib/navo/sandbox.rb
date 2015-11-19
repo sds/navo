@@ -15,7 +15,6 @@ module Navo
 
     def update_chef_config
       install_cookbooks
-      install_chef_directories
       install_chef_config
     end
 
@@ -66,30 +65,20 @@ module Navo
     def install_cookbooks
       @suite.exec!(%w[mkdir -p] + [@suite.chef_config_dir, @suite.chef_run_dir])
 
-      Berksfile.install(logger: @logger)
-
-      @logger.info 'Installing cookbooks...'
       host_cookbooks_dir = File.join(@suite.repo_root, 'cookbooks')
       container_cookbooks_dir = File.join(@suite.chef_run_dir, 'cookbooks')
 
-      changed = @suite.path_changed?(Berksfile.cache_directory) ||
-                @suite.path_changed?(host_cookbooks_dir)
+      Navo.synchronize do
+        Berksfile.load
 
-      if changed
-        @logger.info 'Installing cookbooks...'
-        Berksfile.vendor(suite: @suite, directory: container_cookbooks_dir)
-      else
-        @logger.info 'No cookbooks changed; nothing to install'
-      end
-    end
-
-    def install_chef_directories
-      %w[data_bags environments roles].each do |dir|
-        @logger.info "Preparing #{dir} directory..."
-        host_dir = File.join(@suite.repo_root, dir)
-        container_dir = File.join(@suite.chef_run_dir, dir)
-
-        @suite.copy_if_changed(from: host_dir, to: container_dir, replace: true)
+        if @suite.path_changed?(Berksfile.path) ||
+           @suite.path_changed?(Berksfile.lockfile_path) ||
+           @suite.path_changed?(host_cookbooks_dir)
+          @logger.info 'Vendoring cookbooks...'
+          Berksfile.vendor(logger: @logger)
+        else
+          @logger.info 'No cookbooks changed; nothing new to install'
+        end
       end
     end
 
