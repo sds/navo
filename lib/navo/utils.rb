@@ -37,9 +37,20 @@ module Navo
       end
     end
 
+    # Returns a hash of the contents of the given file/directory.
+    #
+    # @param path [String]
+    # @return [String, nil]
     def path_hash(path)
       if File.exist?(path)
-        `tar -cf - #{path} 2>/dev/null | md5sum`.split(' ', 2).first
+        %x{
+          { cd cookbooks;
+           export LC_ALL=C;
+           find #{path} -type f -exec md5sum {} + | sort; echo;
+           find #{path} -type d | sort;
+           find #{path} -type d | sort | md5sum;
+          } | md5sum
+        }.split(' ', 2).first
       end
     end
 

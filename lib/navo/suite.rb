@@ -75,11 +75,17 @@ module Navo
       false
     end
 
+    # TODO: Move to a separate class, since this isn't really suite-specific,
+    # but global to the entire repository.
     def path_changed?(path)
       current_hash = Utils.path_hash(path)
-      old_hash = state['files'][path.to_s]
+      @global_state['files'] ||= {}
+      old_hash = @global_state['files'][path.to_s]
 
-      state.modify do |local|
+      @logger.debug("Old hash of #{path.to_s}: #{old_hash}")
+      @logger.debug("Current hash of #{path.to_s}: #{current_hash}")
+
+      @global_state.modify do |local|
         local['files'][path.to_s] = current_hash
       end
 

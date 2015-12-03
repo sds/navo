@@ -71,11 +71,18 @@ module Navo
       Navo.synchronize do
         Berksfile.load
 
-        if @suite.path_changed?(Berksfile.path) ||
-           @suite.path_changed?(Berksfile.lockfile_path) ||
-           @suite.path_changed?(host_cookbooks_dir)
+        # Check all files first so we calculate the hashes
+        berksfile_changed = @suite.path_changed?(Berksfile.path)
+        lockfile_changed = @suite.path_changed?(Berksfile.lockfile_path)
+        cookbooks_changed = @suite.path_changed?(host_cookbooks_dir)
+
+        if (berksfile_changed || lockfile_changed || cookbooks_changed) ||
+           @suite.path_changed?(Berksfile.vendor_directory)
+
           @logger.info 'Vendoring cookbooks...'
           Berksfile.vendor(logger: @logger)
+          # Recalculate new hash
+          @suite.path_changed?(Berksfile.vendor_directory)
         else
           @logger.info 'No cookbooks changed; nothing new to install'
         end
