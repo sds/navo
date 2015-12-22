@@ -133,6 +133,12 @@ module Navo
 
     def node_attributes
       suite_config = @config['suites'][name]
+
+      unless (run_list = Array(suite_config['run-list'])).any?
+        raise Navo::Errors::ConfigurationError,
+              "No `run-list` specified for suite #{name}!"
+      end
+
       @config['chef']['attributes']
         .merge(suite_config.fetch('attributes', {}))
         .merge(run_list: suite_config['run-list'])
