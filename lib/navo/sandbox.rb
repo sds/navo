@@ -102,6 +102,10 @@ module Navo
       @logger.info 'Preparing first-boot.json'
       @suite.write(file: File.join(@suite.chef_config_dir, 'first-boot.json'),
                    content: @suite.node_attributes.to_json)
+
+      @logger.debug 'Installing custom formatter'
+      formatter_file = File.expand_path('chef_formatter.rb', File.dirname(__FILE__))
+      @suite.copy(from: formatter_file, to: @suite.chef_config_dir)
     end
 
     def storage_directory

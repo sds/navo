@@ -115,7 +115,7 @@ module Navo
 
     def indent_output(prefix, colored_prefix, message)
       return message unless prefix
-      message.gsub("\n", "\n#{colored_prefix}")
+      message.gsub(/\n(?!$)/, "\n#{colored_prefix}")
     end
   end
 end

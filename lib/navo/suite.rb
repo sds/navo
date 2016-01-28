@@ -101,11 +101,11 @@ module Navo
     # Execte a command on the container.
     def exec(args, severity: :debug)
       container.exec(args) do |_stream, chunk|
-        @logger.log(severity, chunk, flush: chunk.end_with?("\n"))
+        @logger.log(severity, chunk, flush: chunk.to_s.end_with?("\n"))
       end
     end
 
-    # Execute a command on the container, raising an error if it exists
+    # Execute a command on the container, raising an error if it exits
     # unsuccessfully.
     def exec!(args, severity: :debug)
       out, err, status = exec(args, severity: severity)
@@ -119,6 +119,9 @@ module Navo
 
     def chef_solo_config
       return <<-CONF
+      load '/etc/chef/chef_formatter.rb'
+      formatter :navo
+
       node_name #{name.inspect}
       environment #{@config['chef']['environment'].inspect}
       file_cache_path #{File.join(chef_run_dir, 'cache').inspect}
@@ -161,8 +164,8 @@ module Navo
         /opt/chef/embedded/bin/chef-solo
         --config=#{File.join(chef_config_dir, 'solo.rb')}
         --json-attributes=#{File.join(chef_config_dir, 'first-boot.json')}
+        --format=navo
         --force-formatter
-        --no-color
       ], severity: :info)
 
       status == 0
