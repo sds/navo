@@ -109,7 +109,7 @@ module Navo
       # Handle Ctrl-C
       logger.console('INTERRUPTED', severity: :warn)
     rescue => ex
-      logger.console("Unexpected error: #{ex.message}", severity: :fatal)
+      logger.console("#{ex.class}: #{ex.message}", severity: :fatal)
       logger.console(ex.backtrace.join("\n"), severity: :fatal)
     end
   end
