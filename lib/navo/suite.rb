@@ -53,6 +53,7 @@ module Navo
       end
 
       current_hash = Utils.path_hash(from)
+      state['files'] ||= {}
       old_hash = state['files'][from.to_s]
 
       if !old_hash || current_hash != old_hash
@@ -223,6 +224,7 @@ module Navo
       @logger.info "=====> Destroyed #{name}"
       true
     ensure
+      @container = nil
       state.destroy
     end
 
