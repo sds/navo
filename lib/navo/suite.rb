@@ -213,6 +213,8 @@ module Navo
             @logger.info "Stopping container #{container.id}..."
             container.stop
           end
+        rescue Docker::Error::TimeoutError => ex
+          @logger.warn ex.message
         ensure
           begin
             @logger.info("Removing container #{container.id}")
