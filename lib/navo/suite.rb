@@ -183,8 +183,20 @@ module Navo
     end
 
     def test
-      return false unless converge
-      verify
+      return false unless destroy
+      passed = converge && verify
+
+      should_destroy =
+        case @config['destroy']
+        when 'passing'
+          passed
+        when 'always'
+          true
+        when 'never'
+          false
+        end
+
+      should_destroy ? destroy : passed
     end
 
     def destroy

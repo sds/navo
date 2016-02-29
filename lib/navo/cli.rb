@@ -29,6 +29,14 @@ module Navo
              aliases: '-l',
              type: :string,
              desc: 'Set the log output verbosity level'
+
+      if action == :test
+        option 'destroy',
+               aliases: '-d',
+               type: :string,
+               desc: 'Destroy strategy to use after testing (passing, always, never)'
+      end
+
       define_method(action) do |*args|
         apply_flags_to_config!
         execute(action, *args)
@@ -74,6 +82,7 @@ module Navo
       config['log-level'] = options['log-level'] if options['log-level']
       Navo::Logger.level = config['log-level']
       config['concurrency'] = options['concurrency'] if options['concurrency']
+      config['destroy'] = options.fetch('destroy', 'passing')
 
       # Initialize here so config is correctly set
       Berksfile.path = File.expand_path(config['chef']['berksfile'], config.repo_root)
