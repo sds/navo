@@ -204,28 +204,31 @@ module Navo
       @logger.info "=====> Destroying #{name}"
 
       if state['container']
-        if @config['docker']['stop-command']
-          @logger.info "Stopping container #{container.id} via command #{@config['docker']['stop-command']}"
-          exec(@config['docker']['stop-command'])
-          container.wait(@config['docker'].fetch('stop-timeout', 10))
-        else
-          @logger.info "Stopping container #{container.id}..."
-          container.stop
-        end
-
         begin
-          @logger.info("Removing container #{container.id}")
-          container.remove(force: true)
-        rescue Docker::Error::ServerError => ex
-          @logger.warn ex.message
+          if @config['docker']['stop-command']
+            @logger.info "Stopping container #{container.id} via command #{@config['docker']['stop-command']}"
+            exec(@config['docker']['stop-command'])
+            container.wait(@config['docker'].fetch('stop-timeout', 10))
+          else
+            @logger.info "Stopping container #{container.id}..."
+            container.stop
+          end
+        ensure
+          begin
+            @logger.info("Removing container #{container.id}")
+            container.remove(force: true)
+          rescue Docker::Error::ServerError => ex
+            @logger.warn ex.message
+          end
         end
       end
 
-      @logger.info "=====> Destroyed #{name}"
       true
     ensure
       @container = nil
       state.destroy
+
+      @logger.info "=====> Destroyed #{name}"
     end
 
     # Returns the {Docker::Image} used by this test suite, building it if
