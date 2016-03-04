@@ -115,7 +115,8 @@ module Navo
     end
 
     def login
-      Kernel.exec('docker', 'exec', '-it', container.id, *@config['docker']['shell-command'])
+      Kernel.exec('docker', 'exec', '-it', container.id,
+                  *@config['docker'].fetch('shell_command', ['/bin/bash']))
     end
 
     def chef_solo_config
@@ -138,14 +139,14 @@ module Navo
     def node_attributes
       suite_config = @config['suites'][name]
 
-      unless (run_list = Array(suite_config['run-list'])).any?
+      unless (run_list = Array(suite_config['run_list'])).any?
         raise Navo::Errors::ConfigurationError,
-              "No `run-list` specified for suite #{name}!"
+              "No `run_list` specified for suite #{name}!"
       end
 
       @config['chef']['attributes']
         .merge(suite_config.fetch('attributes', {}))
-        .merge(run_list: suite_config['run-list'])
+        .merge(run_list: suite_config['run_list'])
     end
 
     def create
@@ -205,10 +206,10 @@ module Navo
 
       if state['container']
         begin
-          if @config['docker']['stop-command']
-            @logger.info "Stopping container #{container.id} via command #{@config['docker']['stop-command']}"
-            exec(@config['docker']['stop-command'])
-            container.wait(@config['docker'].fetch('stop-timeout', 10))
+          if @config['docker']['stop_command']
+            @logger.info "Stopping container #{container.id} via command #{@config['docker']['stop_command']}"
+            exec(@config['docker']['stop_command'])
+            container.wait(@config['docker'].fetch('stop_timeout', 10))
           else
             @logger.info "Stopping container #{container.id}..."
             container.stop
