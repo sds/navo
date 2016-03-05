@@ -126,7 +126,7 @@ module Navo
       load '/etc/chef/chef_formatter.rb'
       formatter :navo
 
-      node_name #{name.inspect}
+      node_name #{hostname.inspect}
       environment #{@config['chef']['environment'].inspect}
       file_cache_path #{File.join(chef_run_dir, 'cache').inspect}
       file_backup_path #{File.join(chef_run_dir, 'backup').inspect}
@@ -305,6 +305,7 @@ module Navo
 
             container = Docker::Container.create(
               'Image' => image.id,
+              'Hostname' => hostname,
               'OpenStdin' => true,
               'StdinOnce' => true,
               'HostConfig' => {
@@ -317,6 +318,8 @@ module Navo
                 ],
               },
             )
+
+            container.rename(container_name)
 
             state['container'] = container.id
           end
@@ -371,6 +374,19 @@ module Navo
     def state
       @state ||= StateFile.new(file: File.join(storage_directory, 'state.yaml'),
                                logger: @logger).tap(&:load)
+    end
+
+    def hostname
+      # Hostnames cannot contain underscores. While a node name isn't a
+      @config['suites'][name].fetch('hostname', name).gsub('_', '-')
+    end
+
+    def container_name
+      # Base container name off of suite name but append a unique
+      # identifier based on the repo path (so multiple repos on the same system
+      # with the same suite name can stand up their own test suites without name
+      # conflicts)
+      "navo-#{name}-#{Digest::MD5.new.hexdigest(repo_root)[0..4]}"
     end
 
     def close_log
