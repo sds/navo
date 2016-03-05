@@ -11,7 +11,7 @@ module Navo
     def initialize(name:, config:, global_state:)
       @name = name
       @config = config
-      @logger = Navo::Logger.new(suite: self)
+      @logger = Navo::Logger.new(config: config, suite: self)
       @global_state = global_state
 
       state.modify do |local|
@@ -150,16 +150,16 @@ module Navo
     end
 
     def create
-      @logger.info "=====> Creating #{name}"
+      @logger.event "Creating #{name}"
       container
-      @logger.info "=====> Created #{name} in container #{container.id}"
+      @logger.event "Created #{name} in container #{container.id}"
       container
     end
 
     def converge
       create
 
-      @logger.info "=====> Converging #{name}"
+      @logger.event "Converging #{name}"
       sandbox.update_chef_config
 
       _, _, status = exec(%W[
@@ -176,7 +176,7 @@ module Navo
     def verify
       create
 
-      @logger.info "=====> Verifying #{name}"
+      @logger.event "Verifying #{name}"
       sandbox.update_test_config
 
       _, _, status = exec(['/usr/bin/env'] + busser_env + %W[#{busser_bin} test],
@@ -202,7 +202,7 @@ module Navo
     end
 
     def destroy
-      @logger.info "=====> Destroying #{name}"
+      @logger.event "Destroying #{name}"
 
       if state['container']
         begin
@@ -231,7 +231,7 @@ module Navo
       @container = nil
       state.destroy
 
-      @logger.info "=====> Destroyed #{name}"
+      @logger.event "Destroyed #{name}"
     end
 
     # Returns the {Docker::Image} used by this test suite, building it if
@@ -369,6 +369,10 @@ module Navo
     def state
       @state ||= StateFile.new(file: File.join(storage_directory, 'state.yaml'),
                                logger: @logger).tap(&:load)
+    end
+
+    def close_log
+      @logger.close
     end
 
     def log_file

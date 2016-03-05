@@ -29,6 +29,11 @@ module Navo
              aliases: '-l',
              type: :string,
              desc: 'Set the log output verbosity level'
+      option 'summary',
+             aliases: '-s',
+             type: :boolean,
+             desc: 'Print out logs at the end of the run ' \
+                   '(best if combined with --log-level=error)'
 
       if action == :test
         option 'destroy',
@@ -66,7 +71,7 @@ module Navo
     end
 
     def logger
-      @logger ||= Navo::Logger.new
+      @logger ||= Navo::Logger.new(config: config)
     end
 
     def suites_for(pattern)
@@ -83,6 +88,7 @@ module Navo
       Navo::Logger.level = config['log_level']
       config['concurrency'] = options['concurrency'] if options['concurrency']
       config['destroy'] = options.fetch('destroy', 'passing')
+      config['summary'] = options.fetch('summary', false)
 
       # Initialize here so config is correctly set
       Berksfile.path = File.expand_path(config['chef']['berksfile'], config.repo_root)
@@ -95,22 +101,30 @@ module Navo
       suites = suites_for(pattern)
       results = Parallel.map(suites, in_threads: config['concurrency']) do |suite|
         succeeded = suite.send(action)
+        suite.close_log
         [succeeded, suite]
       end
 
       failures = results.reject { |succeeded, result| succeeded }
       failures.each do |_, suite|
-        logger.console("Failed to #{action} #{suite.name}", severity: :error)
-        logger.console("See #{suite.log_file} for full log output", severity: :error)
+        logger.error("`#{action}` failed for suite `#{suite.name}`")
+        logger.error("See #{suite.log_file} for full log output")
+      end
+
+      if config['summary']
+        failures.each do |_, suite|
+          logger.event("LOG OUTPUT FOR `#{suite.name}`:")
+          puts File.read(suite.log_file)
+        end
       end
 
       exit failures.any? ? 1 : 0
     rescue Interrupt
       # Handle Ctrl-C
-      logger.console('INTERRUPTED', severity: :warn)
+      logger.fatal('INTERRUPTED')
     rescue => ex
-      logger.console("#{ex.class}: #{ex.message}", severity: :fatal)
-      logger.console(ex.backtrace.join("\n"), severity: :fatal)
+      logger.fatal("#{ex.class}: #{ex.message}")
+      logger.fatal(ex.backtrace.join("\n"))
     end
   end
 end

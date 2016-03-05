@@ -42,33 +42,31 @@ module Navo
       end
     end
 
-    def initialize(suite: nil)
+    def initialize(config:, suite: nil)
       @suite = suite
+      @config = config
 
       if suite
-        log_file = File.open(suite.log_file, File::CREAT | File::WRONLY | File::APPEND)
+        log_file = File.open(suite.log_file, File::CREAT | File::WRONLY | File::TRUNC)
         @logger = ::Logger.new(log_file)
-        @logger.level = self.class.level
+        @logger.level = ::Logger::DEBUG # Record everything in case we need to inspect later
       end
 
       @color_hash = {}
     end
 
     def console(message, severity: :info, flush: true)
-      # In order to improve the output displayed, we don't want to print a line
-      # for every chunk of log received--only logs which have newlines.
-      # Thus we buffer the output and flush it once we have the full amount.
-      @buffer_severity ||= severity
-      @buffer_level ||= ::Logger.const_get(severity.upcase)
-      @buffer ||= ''
-      @buffer += message
-
-      flush_buffer if flush
+      severity_level = ::Logger.const_get(severity.upcase)
+      if severity_level >= self.class.level
+        self.class.mutex.synchronize do
+          self.class.logger << pretty_message(severity, message)
+        end
+      end
     end
 
     def log(severity, message, flush: true)
       level = ::Logger.const_get(severity.upcase)
-      @logger.add(level, message) if @logger
+      @logger.add(level, message.chomp("\n")) if @logger
       console(message, severity: severity, flush: flush)
     end
 
@@ -78,19 +76,14 @@ module Navo
       end
     end
 
-    def flush_buffer
-      if @buffer
-        # This is shared amongst potentially many threads, so serialize access
-        if @buffer_level >= self.class.level
-          self.class.mutex.synchronize do
-            self.class.logger << pretty_message(@buffer_severity, @buffer)
-          end
-        end
+    # Abuse the "unknown" severity to show events. This way we can set the
+    # log-level to "error" but still see major events.
+    def event(msg)
+      unknown("=====> #{msg}")
+    end
 
-        @buffer = nil
-        @buffer_severity = nil
-        @buffer_level = nil
-      end
+    def close
+      @logger.close if @logger
     end
 
     private

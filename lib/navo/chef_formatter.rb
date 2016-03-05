@@ -45,84 +45,17 @@ class Chef
         puts_line "Starting Chef client #{version}...", :cyan
       end
 
-      def ohai_completed(node)
-        puts_line ''
-        puts_line 'Ohai run completed', :cyan
-      end
-
-      def library_load_start(file_count)
-        @load_start_time = Time.now
-        puts_line ''
-        puts_line 'Loading cookbook libraries...', :cyan
-      end
-
-      def library_load_complete
-        elapsed = Time.now - @load_start_time
-        puts_line "Loaded cookbook libraries (#{elapsed}s)", :cyan
-      end
-
-      def attribute_load_start(file_count)
-        @load_start_time = Time.now
-        puts_line ''
-        puts_line 'Loading cookbook attributes...', :cyan
-      end
-
-      def attribute_load_complete
-        elapsed = Time.now - @load_start_time
-        puts_line "Loaded cookbook attributes (#{elapsed}s)", :cyan
-      end
-
-      def lwrp_load_start(file_count)
-        @load_start_time = Time.now
-        puts_line ''
-        puts_line 'Loading custom resources...', :cyan
-      end
-
-      def lwrp_load_complete
-        elapsed = Time.now - @load_start_time
-        puts_line "Loaded custom resources (#{elapsed}s)", :cyan
-      end
-
-      def definition_load_start(file_count)
-        @load_start_time = Time.now
-        puts_line ''
-        puts_line 'Loading definitions...', :cyan
-      end
-
-      def definition_load_complete
-        elapsed = Time.now - @load_start_time
-        puts_line "Loaded definitions (#{elapsed}s)", :cyan
-      end
-
-      def recipe_load_start(recipes)
-        @load_start_time = Time.now
-        puts_line ''
-        puts_line "Loading recipes...", :cyan
-      end
-
-      def recipe_load_complete
-        elapsed = Time.now - @load_start_time
-        puts_line "Recipes loaded (#{elapsed}s)", :cyan
-      end
-
-      def file_loaded(path)
-        puts_line "Loaded #{path}"
-      end
-
       def converge_start(run_context)
-        puts_line ''
         puts_line "Converging #{run_context.resource_collection.all_resources.size} resources..."
       end
 
       def converge_complete
         unindent while @resource_stack.pop
-        puts_line ''
         puts_line 'Converge completed', :green
       end
 
       def converge_failed(e)
         unindent while @resource_stack.pop
-        puts_line ''
         puts_line "Converge failed: #{e}", :red
       end
 
@@ -212,7 +145,6 @@ class Chef
 
       def handlers_start(handler_count)
         @handler_count = handler_count
-        puts_line ''
         if @handler_count > 0
           puts_line "Running #{handler_count} handlers:", :cyan
         else
@@ -243,7 +175,6 @@ class Chef
 
         print_deprecations
 
-        puts_line ''
         print_resource_summary
         puts_line "Chef client finished in #{@end_time - @start_time} seconds", :cyan
       end
@@ -262,8 +193,6 @@ class Chef
           elapsed = '%-.3fs' % values.inject(:+)
           puts_line "#{elapsed.ljust(8)} #{key.first} (#{key[1]})"
         end
-
-        puts_line ''
       end
 
       def indent
