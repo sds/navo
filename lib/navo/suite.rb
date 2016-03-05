@@ -115,7 +115,9 @@ module Navo
     end
 
     def login
-      Kernel.exec('docker', 'exec', '-it', container.id,
+      Kernel.exec('docker', 'exec',
+                  "--detach-keys=#{@config.fetch('detach_keys', 'ctrl-x,b')}",
+                  '-it', container.id,
                   *@config['docker'].fetch('shell_command', ['/bin/bash']))
     end
 
