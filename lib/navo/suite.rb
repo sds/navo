@@ -249,26 +249,29 @@ module Navo
          dockerfile = File.expand_path(@config['docker']['dockerfile'], repo_root)
          build_dir = File.dirname(dockerfile)
 
-         dockerfile_hash = Digest::SHA256.new.hexdigest(File.read(dockerfile))
-         @logger.debug "Dockerfile hash is #{dockerfile_hash}"
-         image_id = @global_state['images'][dockerfile_hash]
+         Navo.synchronize(dockerfile) do
+           dockerfile_hash = Digest::SHA256.new.hexdigest(File.read(dockerfile))
+           @logger.debug "Dockerfile hash is #{dockerfile_hash}"
 
-         if image_id && Docker::Image.exist?(image_id)
-           @logger.debug "Previous image #{image_id} matching Dockerfile already exists"
-           @logger.debug "Using image #{image_id} instead of building new image"
-           Docker::Image.get(image_id)
-         else
-           @logger.debug "No image exists for #{dockerfile}"
-           @logger.debug "Building a new image with #{dockerfile} " \
-                         "using #{build_dir} as build context directory"
+           image_id = @global_state['images'][dockerfile_hash]
 
-           Docker::Image.build_from_dir(build_dir) do |chunk|
-             if (log = JSON.parse(chunk)) && log.has_key?('stream')
-               @logger.info log['stream']
-             end
-           end.tap do |image|
-             @global_state.modify do |global|
-               global['images'][dockerfile_hash] = image.id
+           if image_id && Docker::Image.exist?(image_id)
+             @logger.debug "Previous image #{image_id} matching Dockerfile already exists"
+             @logger.debug "Using image #{image_id} instead of building new image"
+             Docker::Image.get(image_id)
+           else
+             @logger.debug "No image exists for #{dockerfile}"
+             @logger.debug "Building a new image with #{dockerfile} " \
+                           "using #{build_dir} as build context directory"
+
+             Docker::Image.build_from_dir(build_dir) do |chunk|
+               if (log = JSON.parse(chunk)) && log.has_key?('stream')
+                 @logger.info log['stream']
+               end
+             end.tap do |image|
+               @global_state.modify do |global|
+                 global['images'][dockerfile_hash] = image.id
+               end
              end
            end
          end
