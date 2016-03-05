@@ -9,7 +9,7 @@ module Navo
       super
       Navo::Logger.output = STDOUT
       STDOUT.sync = true
-      Navo::Logger.level = config['log-level']
+      Navo::Logger.level = config['log_level']
     end
 
     {
@@ -79,8 +79,8 @@ module Navo
     end
 
     def apply_flags_to_config!
-      config['log-level'] = options['log-level'] if options['log-level']
-      Navo::Logger.level = config['log-level']
+      config['log_level'] = options['log-level'] if options['log-level']
+      Navo::Logger.level = config['log_level']
       config['concurrency'] = options['concurrency'] if options['concurrency']
       config['destroy'] = options.fetch('destroy', 'passing')
 
