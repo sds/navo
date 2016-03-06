@@ -304,6 +304,7 @@ module Navo
             @logger.info "Building a new container from image #{image.id}"
 
             container = Docker::Container.create(
+              'name' => container_name, # Special key handled by docker-api gem
               'Image' => image.id,
               'Hostname' => hostname,
               'OpenStdin' => true,
@@ -318,8 +319,6 @@ module Navo
                 ],
               },
             )
-
-            container.rename(container_name)
 
             state['container'] = container.id
           end
