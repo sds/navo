@@ -8,6 +8,8 @@ module Navo
   class Suite
     attr_reader :name
 
+    attr_reader :logger
+
     def initialize(name:, config:, global_state:)
       @name = name
       @config = config

@@ -100,22 +100,30 @@ module Navo
     def execute(action, pattern = nil)
       suites = suites_for(pattern)
       results = Parallel.map(suites, in_threads: config['concurrency']) do |suite|
-        succeeded = suite.send(action)
+        succeeded =
+          begin
+            suite.send(action)
+          rescue => err
+            suite.logger.fatal("#{err.class}: #{err.message}")
+            suite.logger.fatal(err.backtrace.join("\n"))
+            false
+          end
         suite.close_log
         [succeeded, suite]
       end
 
-      failures = results.reject { |succeeded, result| succeeded }
-      failures.each do |_, suite|
-        logger.error("`#{action}` failed for suite `#{suite.name}`")
-        logger.error("See #{suite.log_file} for full log output")
-      end
+      failures = results.reject { |succeeded, result, _| succeeded }
 
       if config['summary']
         failures.each do |_, suite|
           logger.event("LOG OUTPUT FOR `#{suite.name}`:")
           puts File.read(suite.log_file)
         end
+      end
+
+      failures.each do |_, suite, err|
+        logger.error("`#{action}` failed for suite `#{suite.name}`")
+        logger.error("See #{suite.log_file} for full `#{suite.name}` log output")
       end
 
       exit failures.any? ? 1 : 0
