@@ -223,7 +223,7 @@ module Navo
         ensure
           begin
             @logger.info("Removing container #{container.id}")
-            container.remove(force: true)
+            container.remove(force: true, v: true)
           rescue Docker::Error::ServerError => ex
             @logger.warn ex.message
           end
@@ -305,15 +305,23 @@ module Navo
           if !container
             @logger.info "Building a new container from image #{image.id}"
 
+            # Until Docker supports colons in paths for volume specs [1], we
+            # assume that a spec containing no colons indicates the user wants
+            # to create a data volume.
+            # [1] https://github.com/docker/docker/issues/8604
+            data_volumes, bind_mounts = container_volumes.partition { |spec| spec =~ %r{^/[^:]*$} }
+            data_volumes_hash = Hash[data_volumes.map { |path| [path, {}] }]
+
             container = Docker::Container.create(
               'name' => container_name, # Special key handled by docker-api gem
               'Image' => image.id,
               'Hostname' => hostname,
               'OpenStdin' => true,
               'StdinOnce' => true,
+              'Volumes' => data_volumes_hash,
               'HostConfig' => {
                 'Privileged' => @config['docker']['privileged'],
-                'Binds' => @config['docker']['volumes'] + %W[
+                'Binds' => bind_mounts + %W[
                   #{Berksfile.vendor_directory}:#{File.join(chef_run_dir, 'cookbooks')}
                   #{File.join(repo_root, 'data_bags')}:#{File.join(chef_run_dir, 'data_bags')}
                   #{File.join(repo_root, 'environments')}:#{File.join(chef_run_dir, 'environments')}
@@ -388,6 +396,11 @@ module Navo
       # with the same suite name can stand up their own test suites without name
       # conflicts)
       "navo-#{name}-#{Digest::MD5.new.hexdigest(repo_root)[0..4]}"
+    end
+
+    def container_volumes
+      (Array(@config['docker']['volumes']) +
+       Array(@config['suites'][name]['volumes'])).flatten
     end
 
     def close_log
