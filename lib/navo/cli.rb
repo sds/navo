@@ -99,6 +99,26 @@ module Navo
 
     def execute(action, pattern = nil)
       suites = suites_for(pattern)
+
+      verbing = action.to_s.end_with?('e') ? "#{action.to_s[0..-2]}ing" : "#{action}ing"
+
+      if pattern
+        if suites.count > 1
+          logger.event "#{verbing.capitalize} #{suites.count} suites:"
+          suites.each do |suite|
+            logger.event suite.name
+          end
+        elsif suites.count < 1
+          logger.fatal "No suites matching pattern '#{pattern}'!"
+          exit 1
+        end
+      elsif suites.count > 0
+        logger.event "#{verbing.capitalize} all #{suites.count} suites"
+      else
+        logger.fatal 'No suites defined!'
+        exit 1
+      end
+
       results = Parallel.map(suites, in_threads: config['concurrency']) do |suite|
         succeeded =
           begin
