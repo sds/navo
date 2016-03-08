@@ -253,7 +253,8 @@ module Navo
          dockerfile = File.expand_path(@config['docker']['dockerfile'], repo_root)
          build_dir = File.dirname(dockerfile)
 
-         Navo.synchronize(dockerfile) do
+         image_name = "#{@config['docker'].fetch('repo', 'navo')}:#{name}"
+         image = Navo.synchronize(dockerfile) do
            dockerfile_hash = Digest::SHA256.new.hexdigest(File.read(dockerfile))
            @logger.debug "Dockerfile hash is #{dockerfile_hash}"
 
@@ -268,7 +269,7 @@ module Navo
              @logger.debug "Building a new image with #{dockerfile} " \
                            "using #{build_dir} as build context directory"
 
-             Docker::Image.build_from_dir(build_dir) do |chunk|
+             Docker::Image.build_from_dir(build_dir, t: image_name) do |chunk|
                if (log = JSON.parse(chunk)) && log.has_key?('stream')
                  @logger.info log['stream']
                end
@@ -279,6 +280,26 @@ module Navo
              end
            end
          end
+
+         # If another image is already tagged with the tag, remove it first
+         if Docker::Image.exist?(image_name)
+           existing_image = Docker::Image.get(image_name)
+           if existing_image.id != image.id
+             begin
+               existing_image.remove
+             rescue Docker::Error::ConflictError
+               @logger.warn "Unable to remove tag from previous '#{image_name}' image (#{image.id})"
+             end
+           end
+         end
+
+         unless Docker::Image.exist?(image_name)
+           @logger.debug "Tagging #{image.id} with '#{image_name}'..."
+           image.tag(repo: 'navo', tag: name)
+           @logger.debug "Image #{image.id} tagged with '#{image_name}'"
+         end
+
+         image
        end
     end
 
