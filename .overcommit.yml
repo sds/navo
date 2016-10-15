@@ -11,7 +11,6 @@ PreCommit:
 
   RuboCop:
     enabled: true
-    command: ['bundle', 'exec', 'rubocop']
 
   TrailingWhitespace:
     enabled: true
